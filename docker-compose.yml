@@ -1,0 +1,40 @@
+version: '3.8'
+services:
+  # 1. Banco de Dados PostgreSQL
+  postgres-aulanote:
+    image: postgres:15-alpine
+    container_name: postgres-aulanote
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 1234
+      POSTGRES_DB: aulanote
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata-aulanote:/var/lib/postgresql/data
+    networks:
+      - aulanote-network
+    restart: unless-stopped
+  # 2. Sua API Java (AulaNote)
+  backend-aulanote:
+    build: .
+    container_name: backend-aulanote
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-aulanote:5432/aulanote
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=1234
+      # Ele vai puxar as chaves de API direto do seu computador!
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    depends_on:
+      - postgres-aulanote
+    networks:
+      - aulanote-network
+    restart: unless-stopped
+volumes:
+  pgdata-aulanote:
+networks:
+  aulanote-network:
+    driver: bridge
