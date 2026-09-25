@@ -1,8 +1,8 @@
 package com.marcos.aulanote.business;
 
-import com.marcos.aulanote.business.dto.in.TranscricaoDTORequest;
 import com.marcos.aulanote.business.dto.out.TranscricaoDTOResponse;
 import com.marcos.aulanote.business.mapper.TranscricaoMapper;
+import com.marcos.aulanote.infrastructure.client.WhisperClient;
 import com.marcos.aulanote.infrastructure.entity.Sessao;
 import com.marcos.aulanote.infrastructure.entity.Transcricao;
 import com.marcos.aulanote.infrastructure.exception.ResourceNotFoundException;
@@ -24,21 +24,27 @@ public class TranscricaoService {
     private final TranscricaoRepository transcricaoRepository;
     private final TranscricaoMapper transcricaoMapper;
     private final SessaoRepository sessaoRepository;
+    private final WhisperClient whisperClient;
 
-    public TranscricaoDTOResponse salvarTranscricao(TranscricaoDTORequest dtoRequest, String sessaoId) {
-        Sessao sessao = sessaoRepository.findById(sessaoId).orElseThrow(() -> new ResourceNotFoundException(
-                "Sessão não encontrada com o id: " + sessaoId)
-        );
 
-        Transcricao transcricao = transcricaoMapper.paraEntity(dtoRequest);
-        transcricao.setCriadaEm(LocalDateTime.now());
-        transcricao.setSessao(sessao);
-
-        log.info("Salvando transcrição para sessão: {} ", sessaoId);
-
+    // O DTORequest agora não tem texto, vamos receber bytes!
+// Então muda o parâmetro para byte[] e um nome.
+    public TranscricaoDTOResponse salvarTranscricao(byte[] audioBytes, String nomeArquivo, String sessaoId) {
+        Sessao sessao = sessaoRepository.findById(sessaoId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Sessão não encontrada com o id: " + sessaoId));
+        // Chama o Whisper para transcrever
+        String conteudoTranscrito = whisperClient.transcrever(audioBytes, nomeArquivo);
+        Transcricao transcricao = Transcricao.builder()
+                .conteudo(conteudoTranscrito)
+                .criadaEm(LocalDateTime.now())
+                .sessao(sessao)
+                .build();
+        log.info("Transcrição salva para sessão: {}", sessaoId);
         return transcricaoMapper.paraDTOResponse(transcricaoRepository.save(transcricao));
     }
-    public List<TranscricaoDTOResponse> bucasPorSessao(String sessaoId){
+
+    public List<TranscricaoDTOResponse> bucasrorSessao(String sessaoId) {
         return transcricaoRepository.findBySessaoId(sessaoId)
                 .stream()
                 .map(transcricaoMapper::paraDTOResponse)
