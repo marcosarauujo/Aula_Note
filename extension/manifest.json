@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "AulaNote - Resumo com IA",
+  "version": "1.0",
+  "description": "Grava o audio das suas aulas e gera resumos automaticos com IA.",
+  "permissions": [
+    "tabCapture",
+    "activeTab",
+    "storage"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "action": {},
+  "background": {
+    "service_worker": "background.js"
+  }
+}

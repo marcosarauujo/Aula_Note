@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("//api/sessoes/{sessaoId}/notas")
+@RequestMapping("/api/sessoes/{sessaoId}/notas")
 @Slf4j
 public class NotaController {
     private final NotaService notaService;
