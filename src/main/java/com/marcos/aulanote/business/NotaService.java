@@ -21,7 +21,6 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -41,43 +40,59 @@ public class NotaService {
                 "Sessão não encontrada com o id: " + sessaoId)
         );
 
-        // Junta todas as transcrições
-        String transcricaoCompleta = transcricaoRepository.findBySessaoId(sessaoId)
-                .stream()
-                .map(Transcricao::getConteudo)
-                .collect(Collectors.joining(" "));
+        // Busca cada parte da transcrição separadamente
+        List<Transcricao> transcricoes = transcricaoRepository.findBySessaoId(sessaoId);
+        log.info("Processando {} parte(s) de transcrição para a sessão: {}", transcricoes.size(), sessaoId);
 
-        // Monta o prompt para o Gemini
-        String prompt = """
-                Você é um assistente de estudos. Com base na transcrição da aula abaixo,
-                gere um resumo estruturado em tópicos com os conceitos principais, 
-                pontos importantes e exemplos citados.
-                
-                Transcrição:
-                """ + transcricaoCompleta;
+        // Formata cada parte individualmente com o Gemini e junta os resultados
+        StringBuilder notaFinal = new StringBuilder();
+        for (int i = 0; i < transcricoes.size(); i++) {
+            String parteTexto = transcricoes.get(i).getConteudo();
+            log.info("Enviando parte {}/{} para o Gemini ({} caracteres)...", i + 1, transcricoes.size(), parteTexto.length());
 
-        // Monta o request e chama o Gemini
-        GeminiDTORequest geminiRequest = GeminiDTORequest.builder()
-                .contents(List.of(
-                        GeminiContent.builder()
-                                .parts(List.of(
-                                        GeminiPart.builder().text(prompt).build()
-                                ))
-                                .build()
-                ))
-                .build();
+            String prompt = """
+                    Você é um assistente técnico encarregado de organizar transcrições de aulas de programação.
+                    Sua missão é pegar a transcrição bruta da aula abaixo e formatá-la usando Markdown (para ficar legível),
+                    MAS PRESERVANDO 100% DAS PALAVRAS, DA EXPLICAÇÃO E DA LINHA DE RACIOCÍNIO DA PROFESSORA.
 
-        GeminiDTOResponse geminiResponse = geminiClient.gerarConteudo(geminiApiKey, geminiRequest);
-        String notaGerada = geminiResponse.extrairTexto();
+                    Regras obrigatórias:
+                    1. NÃO resuma a aula. Não corte ideias. Mantenha o exato ponto de vista e a voz da professora.
+                    2. Divida o texto gigante em parágrafos fluidos.
+                    3. Identifique trechos que são linhas de código ou comandos e coloque-os dentro de blocos de código markdown.
+                    4. Apenas remova gaguejos, vícios de linguagem ("ééé", "tipo assim") ou repetições de palavras soltas que a ferramenta de áudio pegou errado.
 
+                    Transcrição bruta da aula:
+                    """ + parteTexto;
 
-        // Salva a nota gerada pelo Gemini
+            GeminiDTORequest geminiRequest = GeminiDTORequest.builder()
+                    .contents(List.of(
+                            GeminiContent.builder()
+                                    .parts(List.of(
+                                            GeminiPart.builder().text(prompt).build()
+                                    ))
+                                    .build()
+                    ))
+                    .build();
+
+            try {
+                GeminiDTOResponse geminiResponse = geminiClient.gerarConteudo(geminiApiKey, geminiRequest);
+                notaFinal.append(geminiResponse.extrairTexto());
+                if (i < transcricoes.size() - 1) {
+                    notaFinal.append("\n\n---\n\n"); // separador entre partes
+                }
+            } catch (Exception e) {
+                log.error("Erro ao chamar o Gemini na parte {}/{}. Erro: {}", i + 1, transcricoes.size(), e.getMessage());
+                throw e;
+            }
+        }
+
+        // Salva a nota final (junção de todas as partes formatadas)
         Nota nota = Nota.builder()
-                .conteudo(notaGerada)
+                .conteudo(notaFinal.toString())
                 .criadaEm(LocalDateTime.now())
                 .sessao(sessao)
                 .build();
-        log.info("Nota gerada pelo Gemini para a sessão: {}", sessaoId);
+        log.info("Nota completa gerada e salva para a sessão: {}", sessaoId);
         return notaMapper.paraDTOResponse(notaRepository.save(nota));
     }
 
