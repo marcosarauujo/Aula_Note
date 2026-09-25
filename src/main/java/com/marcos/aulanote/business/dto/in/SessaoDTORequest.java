@@ -11,5 +11,5 @@ import lombok.*;
 @Builder
 public class SessaoDTORequest {
     @NotBlank(message = "O título da sessão é obrigatório")
-    private StatusSessaoEnum statusSessaoEnum;
+    private String titulo;
 }

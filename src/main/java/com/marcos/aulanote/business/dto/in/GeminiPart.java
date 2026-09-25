@@ -7,7 +7,6 @@ import lombok.*;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-
-public class TranscricaoDTORequest {
-    private String conteudo;
+public class GeminiPart {
+    private String text;
 }
