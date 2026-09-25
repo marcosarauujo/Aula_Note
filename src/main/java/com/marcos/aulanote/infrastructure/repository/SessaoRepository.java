@@ -9,5 +9,5 @@ import java.util.List;
 
 @Repository
 public interface SessaoRepository extends JpaRepository<Sessao, String> {
-    List<Sessao> findByStatus(StatusSessaoEnum statusSessaoEnum);
+    List<Sessao> findByStatusSessaoEnum(StatusSessaoEnum statusSessaoEnum);
 }
